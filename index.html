@@ -183,7 +183,7 @@
     <h3>🔑 API-Key einrichten</h3>
     <p>Um den Chatbot zu testen, braucht es einen <strong>Anthropic API-Key</strong>.<br><br>
     Der Key wird <strong>nur lokal in deinem Browser</strong> verwendet – er wird nirgends gespeichert oder weitergegeben.</p>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off" />
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" />
     <button class="modal-btn" onclick="saveApiKey()">Chatbot starten →</button>
     <div class="modal-note">
       Noch kein Key? → <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
@@ -508,15 +508,17 @@ document.getElementById('apiKeyInput').addEventListener('keydown', e => {
 
 function saveApiKey() {
   const inp = document.getElementById('apiKeyInput');
-  const val = inp.value.trim();
-  if (!val.startsWith('sk-ant-')) {
+  // Strip non-ASCII characters and whitespace
+  const val = inp.value.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!val.startsWith('sk-ant-') || val.length < 20) {
     inp.style.borderColor = '#ef4444';
     inp.value = '';
-    inp.placeholder = '❌ Muss mit sk-ant- beginnen…';
-    setTimeout(() => { inp.style.borderColor = ''; inp.placeholder = 'sk-ant-api03-…'; }, 2500);
+    inp.placeholder = '❌ Gueltiger API-Key erforderlich';
+    setTimeout(() => { inp.style.borderColor = ''; inp.placeholder = 'sk-ant-api03-...'; }, 2500);
     return;
   }
   apiKey = val;
+  localStorage.setItem('og_api_key', val);
   document.getElementById('apiModal').classList.remove('show');
 }
 
@@ -636,9 +638,16 @@ async function sendMessage() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// INIT – Wissen beim Laden aktualisieren
+// INIT – API-Key laden + Wissen aktualisieren
 // ══════════════════════════════════════════════════════════════
-refreshKnowledge(false);
+(function init() {
+  const saved = localStorage.getItem('og_api_key');
+  if (saved && saved.startsWith('sk-ant-') && saved.length > 20) {
+    apiKey = saved;
+    document.getElementById('apiModal').classList.remove('show');
+  }
+  refreshKnowledge(false);
+})();
 </script>
 </body>
 </html>
