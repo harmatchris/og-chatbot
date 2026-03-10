@@ -1,1 +1,370 @@
-TEST_INSERT
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tobi – OVERGROUND Chatbot</title>
+<style>
+  :root {
+    --og-blue: #103a6a;
+    --og-blue-mid: #1a4f8a;
+    --og-blue-light: #629bdc;
+    --og-bg: #f7f8f9;
+    --og-white: #ffffff;
+    --og-text: #0a0a0b;
+    --og-text-dim: rgba(10,10,11,0.55);
+    --og-border: rgba(10,10,11,0.1);
+    --og-radius: 4px;
+    --og-radius-btn: 14px;
+    --og-shadow: 0 4px 24px rgba(16,58,106,0.18);
+    --og-shadow-lg: 0 8px 40px rgba(16,58,106,0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--og-bg); }
+
+  #og-toggle {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: var(--og-blue); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--og-shadow-lg); z-index: 9998;
+    transition: transform 0.2s, background 0.2s;
+  }
+  #og-toggle:hover { transform: scale(1.06); background: var(--og-blue-mid); }
+  #og-toggle svg { width: 28px; height: 28px; fill: white; }
+
+  #og-chat {
+    position: fixed; bottom: 96px; right: 24px;
+    width: 380px; max-height: 600px;
+    background: var(--og-white); border-radius: 12px;
+    box-shadow: var(--og-shadow-lg);
+    display: flex; flex-direction: column; z-index: 9997; overflow: hidden;
+    transform: scale(0.92) translateY(16px); opacity: 0; pointer-events: none;
+    transform-origin: bottom right;
+    transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), opacity 0.18s ease;
+    border: 1px solid var(--og-border);
+  }
+  #og-chat.open { transform: scale(1) translateY(0); opacity: 1; pointer-events: all; }
+
+  #og-header {
+    background: var(--og-blue); color: white;
+    padding: 14px 16px; display: flex; align-items: center; gap: 11px; flex-shrink: 0;
+  }
+  #og-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--og-blue-mid); border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  #og-header-info { flex: 1; min-width: 0; }
+  #og-header-name { font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+  #og-header-sub { font-size: 11.5px; opacity: 0.72; margin-top: 1px; display: flex; align-items: center; gap: 5px; }
+  #og-online-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; }
+  #og-close-btn { background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.7); font-size: 20px; line-height: 1; padding: 4px; transition: color 0.15s; }
+  #og-close-btn:hover { color: white; }
+
+  #og-messages {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth;
+  }
+  #og-messages::-webkit-scrollbar { width: 4px; }
+  #og-messages::-webkit-scrollbar-thumb { background: var(--og-border); border-radius: 2px; }
+
+  .og-msg {
+    max-width: 82%; padding: 10px 13px; border-radius: 12px;
+    font-size: 14px; line-height: 1.55; word-break: break-word;
+  }
+  .og-msg a { color: var(--og-blue-light); text-decoration: underline; text-underline-offset: 2px; }
+  .og-msg.bot {
+    background: var(--og-bg); color: var(--og-text);
+    border-bottom-left-radius: 3px; align-self: flex-start; border: 1px solid var(--og-border);
+  }
+  .og-msg.user {
+    background: var(--og-blue); color: white;
+    border-bottom-right-radius: 3px; align-self: flex-end;
+  }
+  .og-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+  .og-typing span {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--og-blue-light);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .og-typing span:nth-child(2) { animation-delay: 0.18s; }
+  .og-typing span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+    40% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  #og-chips { padding: 0 14px 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .og-chip {
+    background: none; border: 1.5px solid var(--og-blue); color: var(--og-blue);
+    font-size: 12.5px; font-weight: 600; padding: 5px 11px;
+    border-radius: var(--og-radius-btn); cursor: pointer;
+    transition: background 0.15s, color 0.15s; font-family: inherit;
+  }
+  .og-chip:hover { background: var(--og-blue); color: white; }
+
+  #og-inputbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border-top: 1px solid var(--og-border); flex-shrink: 0; background: white;
+  }
+  #og-input {
+    flex: 1; border: 1.5px solid var(--og-border); border-radius: 20px;
+    padding: 9px 14px; font-size: 14px; font-family: inherit; outline: none;
+    background: var(--og-bg); color: var(--og-text); transition: border-color 0.15s;
+    resize: none; max-height: 100px; line-height: 1.4;
+  }
+  #og-input:focus { border-color: var(--og-blue-light); }
+  #og-input::placeholder { color: var(--og-text-dim); }
+  #og-send {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--og-blue);
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background 0.15s, transform 0.15s;
+  }
+  #og-send:hover { background: var(--og-blue-mid); transform: scale(1.05); }
+  #og-send svg { width: 16px; height: 16px; fill: white; }
+
+  #apiModal {
+    position: fixed; inset: 0; background: rgba(10,10,11,0.55);
+    backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
+    z-index: 10000;
+  }
+  #apiModal.hidden { display: none; }
+  #apiModalBox {
+    background: white; border-radius: 12px; padding: 28px 24px;
+    width: 340px; max-width: 92vw; box-shadow: var(--og-shadow-lg);
+  }
+  #apiModalBox h2 { font-size: 18px; color: var(--og-blue); margin-bottom: 6px; font-weight: 700; }
+  #apiModalBox p { font-size: 13.5px; color: var(--og-text-dim); margin-bottom: 16px; line-height: 1.5; }
+  #apiKeyInput {
+    width: 100%; border: 1.5px solid var(--og-border); border-radius: var(--og-radius);
+    padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none;
+    margin-bottom: 12px; color: var(--og-text); transition: border-color 0.15s;
+  }
+  #apiKeyInput:focus { border-color: var(--og-blue-light); }
+  #apiSaveBtn {
+    width: 100%; background: var(--og-blue); color: white; border: none;
+    border-radius: var(--og-radius-btn); padding: 11px; font-size: 14.5px;
+    font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s;
+  }
+  #apiSaveBtn:hover { background: var(--og-blue-mid); }
+  #apiNote { font-size: 12px; color: var(--og-text-dim); text-align: center; margin-top: 10px; }
+
+  @media (max-width: 420px) {
+    #og-chat { width: calc(100vw - 20px); right: 10px; bottom: 82px; }
+    #og-toggle { bottom: 16px; right: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="apiModal">
+  <div id="apiModalBox">
+    <h2>Tobi braucht deinen API-Key</h2>
+    <p>Gib deinen Anthropic API-Key ein. Tobi – der OG Alles Wisser – speichert ihn nur lokal in deinem Browser.</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off" />
+    <button id="apiSaveBtn" onclick="saveApiKey()">Loslegen</button>
+    <p id="apiNote">Kein Key? <a href="https://console.anthropic.com/" target="_blank" style="color:var(--og-blue)">Hier erstellen</a></p>
+  </div>
+</div>
+
+<button id="og-toggle" onclick="toggleChat()" aria-label="Chat oeffnen">
+  <svg id="icon-chat" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+  <svg id="icon-close" viewBox="0 0 24 24" style="display:none"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+</button>
+
+<div id="og-chat">
+  <div id="og-header">
+    <div id="og-avatar">OG</div>
+    <div id="og-header-info">
+      <div id="og-header-name">Tobi &ndash; Der OG Alles Wisser</div>
+      <div id="og-header-sub"><span id="og-online-dot"></span>OVERGROUND Basel</div>
+    </div>
+    <button id="og-close-btn" onclick="toggleChat()">&#x2715;</button>
+  </div>
+  <div id="og-messages"></div>
+  <div id="og-chips">
+    <button class="og-chip" onclick="sendChip('KidsVenture Feriencamps')">Feriencamps</button>
+    <button class="og-chip" onclick="sendChip('Kindergeburtstag Preise')">Kindergeburtstag</button>
+    <button class="og-chip" onclick="sendChip('Kurse und Preise')">Kurse &amp; Preise</button>
+    <button class="og-chip" onclick="sendChip('Oeffnungszeiten')">Oeffnungszeiten</button>
+  </div>
+  <div id="og-inputbar">
+    <textarea id="og-input" placeholder="Stell mir eine Frage..." rows="1"
+      oninput="autoResize(this)"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+    <button id="og-send" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+var apiKey = '';
+var isOpen = false;
+var isLoading = false;
+var messages = [];
+var knowledgeCache = null;
+var knowledgeTs = 0;
+var CACHE_TTL = 86400000;
+
+var STATIC_KNOWLEDGE = "OVERGROUND Basel – Wissen fuer Tobi\n\n== Ueberblick ==\nOVERGROUND Basel ist eine Bewegungs- und Sportanlage. Betreiber: The Ninja Concept GmbH.\nSportarten: Ninja (Hindernisparcours), Parkour, ChaseTag, Tricking, Trampolin, Akrobatik.\nAdresse: Elsaesserstrasse 215, 4056 Basel\nTelefon: +41 61 551 46 00\nE-Mail: rezeption@overground.ch | info@overground.ch\nWebsite: www.overground.ch\n\n== Team & Gruender ==\n4 Gruender: Chris Harmat, Maurice Ndotoni, Andrea Messner (+ 1 weiterer Gruender).\nAndrea Messner = Geschaeftsleitung (GL).\nChris Harmat + Maurice Ndotoni = Vorstand.\nCoaches (u.a.): Mathis Ruesch, Desiree Godenzi, Diego Heubeck, Lukas Daum, Julia Menz, Luit Duerringer, Lenar Wendisch, Kai Messerschmid, Loki Pacheco-Taylor.\n\n== Oeffnungszeiten ==\nMo-Fr: 15:00-20:00 Uhr\nSa/So/Feiertage: 10:00-18:00 Uhr\nSchulferien Basel-Stadt: 10:00-18:00 Uhr\n1. Mai: 10:00-18:00 Uhr\n1. August: Geschlossen\n\n== Eintrittspreise ==\nKids 1-4 Jahre: Tageskarte 6 CHF / Monatsabo 25 CHF / Halbjahresabo 130 CHF / Jahresabo 200 CHF\nKids 5-15 Jahre: 20 / 80 / 330 / 450 CHF\nErwachsene 16+: 27 / 120 / 650 / 990 CHF\nBegleitperson: 8 / 25 / 130 / 200 CHF\n\n== Kurse ==\nSchnupperkurs 55min: 25 CHF | 90min: 45 CHF\nSemesterkurs 55min: 430 CHF | 90min: 645 CHF\nDrop-In 55min: ab 35 CHF | 90min: ab 45 CHF\nPrivatstunde 55min: ab 150 CHF | 90min: ab 250 CHF\nKurskalender: https://www.overground.ch/pages/sportsnow-kurs-kalender\nSchnupperkurse: https://www.overground.ch/products/schnupperkurse\nSemesterkurse Kids: https://www.overground.ch/products/semesterkurse\nSemesterkurse Erwachsene: https://www.overground.ch/products/semesterkurs-erwachsene\n\n== KidsVenture Feriencamps (WICHTIG - grosse Einnahme) ==\nFuer Kinder 5-15 Jahre. Ganztags oder Morgen-Variante.\nFull-Day Camp: ab 559 CHF\nMornings-Only Camp: ab 399 CHF\nAuffahrt-Special: 420 CHF\nAnmeldung: via SportsNow auf der Camp-Seite (NICHT JotForm)\nCamp-Seite: https://www.overground.ch/products/kidsventure\n\nCamp-Daten 2026:\n- Fruehlingsferien Wk1: 30.03.-02.04.\n- Fruehlingsferien Wk2: 07.04.-10.04.\n- Auffahrt: 14.-16.05.\n- Sommerferien Wk1: 29.06.-03.07.\n- Sommerferien Wk2: 06.-10.07.\n- Sommerferien Wk3: 13.-17.07.\n- Sommerferien Wk4: 20.-24.07.\n- Sommerferien Wk5: 27.-31.07.\n- Sommerferien Wk6: 03.-07.08.\n- Herbstferien Wk1: 28.09.-02.10.\n- Herbstferien Wk2: 05.-09.10.\n- Weihnachten Wk1: 21.-23.12.\n- Weihnachten Wk2: 28.-31.12.\n\n== Kindergeburtstag ==\nFuer Kinder ab 4 Jahren. Dauer: 2 Stunden (55 Min. aktives Coaching).\nPreise:\n- Bis 8 Kinder: 320 CHF (1 Coach)\n- Bis 12 Kinder: 390 CHF (1 Coach)\n- Bis 16 Kinder: 520 CHF (2 Coaches)\n- Bis 20 Kinder: 590 CHF (2 Coaches)\nBuchung: https://form.jotform.com/Overground/sportsnow-geburtstagsparty\nInfo-Seite: https://www.overground.ch/products/geburtstagsfeier\nMitbringen: Bequeme Sportkleidung, saubere Hallenschuhe (weiche Sohle).\n\n== Regeln / FAQ ==\n- Kein Mindestalter. Unter 5 Jahren nur bestimmte Bereiche mit Begleitung.\n- Ab 5 Jahren alle Bereiche, aber mit volljähriger Aufsichtsperson.\n- Kleidung: leichte Sportkleidung, saubere Hallenschuhe. Kein Barfuss.\n- Socken nur auf Trickingfloor erlaubt.\n- Eigene Trinkflasche mitbringen. Tape + Liquid Chalk empfohlen (vor Ort erhältlich).\n- Keine Voranmeldung noetig.\n- Beim 1. Besuch: Haftungsausschluss + Einweisungsvideo.\n\n== Weitere Angebote ==\n- Parkour Workshop: https://www.overground.ch/products/parkour\n- Open Nights: https://www.overground.ch/products/open-nights\n- OG Youth Games (13. Juni): https://www.overground.ch/products/og-youth-games\n- Crashkurse verfuegbar\n- Merchandise (Socken, Gutscheine) im Shop\n- Anfahrt: https://www.overground.ch/pages/amfahrt-parken\n- Preise & Oeffnungszeiten: https://www.overground.ch/pages/preise-offnungszeiten\n- Kontakt: https://www.overground.ch/pages/kontakt\n";
+
+function buildSystemPrompt(dynamic) {
+  return "Du bist Tobi - der OG Alles Wisser. Offizieller Chatbot von OVERGROUND Basel.\n\nDein Stil:\n- Locker, direkt, freundlich. Wie ein cooler Kollege der alles weiss.\n- Keine unnötigen Sonderzeichen: kein **, keine Sternchen, kein emoji-Feuerwerk.\n- Kurze, klare Antworten. Nicht endlos labern.\n- Links immer als anklickbares HTML: <a href=\"URL\">Linktext</a>\n- Preise und Daten direkt und klar nennen.\n- Auf Deutsch, mit lockerer Basler Herzlichkeit.\n\nDein Wissen:\n\n" + STATIC_KNOWLEDGE + (dynamic ? "\n== Aktuelle Website-Infos ==\n" + dynamic : "") + "\n\nWichtig:\n- Verweise auf spezifische Unterseiten, nicht immer nur die Homepage.\n- Camps: Anmeldung via SportsNow (auf kidsventure-Seite), NICHT JotForm.\n- Geburtstag: Buchung via JotForm (https://form.jotform.com/Overground/sportsnow-geburtstagsparty).\n- Bei unbekannten Details: auf rezeption@overground.ch oder +41 61 551 46 00 verweisen.";
+}
+
+async function fetchWithProxy(url) {
+  var proxy = 'https://api.allorigins.win/raw?url=';
+  var res = await fetch(proxy + encodeURIComponent(url));
+  if (!res.ok) throw new Error('fetch failed');
+  return res.text();
+}
+
+async function refreshKnowledge() {
+  if (knowledgeCache && Date.now() - knowledgeTs < CACHE_TTL) return knowledgeCache;
+  try {
+    var html = await fetchWithProxy('https://www.overground.ch/products/kidsventure');
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    var text = (div.innerText || div.textContent || '').replace(/\s+/g,' ').trim();
+    knowledgeCache = text.substring(0, 1500);
+    knowledgeTs = Date.now();
+    return knowledgeCache;
+  } catch(e) { return null; }
+}
+
+async function callClaude(userMessage) {
+  var dynamic = knowledgeCache || null;
+  var systemPrompt = buildSystemPrompt(dynamic);
+  messages.push({ role: 'user', content: userMessage });
+  var body = {
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 600,
+    system: systemPrompt,
+    messages: messages.map(function(m) { return { role: m.role, content: m.content }; })
+  };
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    var err = await res.json().catch(function() { return {}; });
+    throw new Error((err.error && err.error.message) || ('API Error ' + res.status));
+  }
+  var data = await res.json();
+  var reply = (data.content && data.content[0] && data.content[0].text) || 'Hmm, da lief was schief.';
+  messages.push({ role: 'assistant', content: reply });
+  return reply;
+}
+
+function addMessage(role, html) {
+  var msgs = document.getElementById('og-messages');
+  var div = document.createElement('div');
+  div.className = 'og-msg ' + role;
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+var typingEl = null;
+function showTyping() {
+  var msgs = document.getElementById('og-messages');
+  typingEl = document.createElement('div');
+  typingEl.className = 'og-msg bot og-typing';
+  typingEl.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(typingEl);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function hideTyping() {
+  if (typingEl) { typingEl.remove(); typingEl = null; }
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+  var input = document.getElementById('og-input');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', escapeHtml(text));
+  isLoading = true;
+  showTyping();
+  try {
+    var reply = await callClaude(text);
+    hideTyping();
+    addMessage('bot', reply);
+  } catch(e) {
+    hideTyping();
+    addMessage('bot', 'Sorry, da ist was schiefgegangen: ' + escapeHtml(e.message) + '. Schreib uns direkt: <a href="mailto:rezeption@overground.ch">rezeption@overground.ch</a>');
+  }
+  isLoading = false;
+}
+
+function sendChip(text) {
+  document.getElementById('og-input').value = text;
+  document.getElementById('og-chips').style.display = 'none';
+  sendMessage();
+}
+
+function toggleChat() {
+  isOpen = !isOpen;
+  document.getElementById('og-chat').classList.toggle('open', isOpen);
+  document.getElementById('icon-chat').style.display = isOpen ? 'none' : 'block';
+  document.getElementById('icon-close').style.display = isOpen ? 'block' : 'none';
+  if (isOpen && messages.length === 0) {
+    setTimeout(function() {
+      addMessage('bot', 'Hey, ich bin Tobi &ndash; der OG Alles Wisser. Was kann ich fuer dich tun? Ob Camps, Geburtstag, Kurse oder einfach Oeffnungszeiten &ndash; frag ruhig.');
+    }, 300);
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function saveApiKey() {
+  var inp = document.getElementById('apiKeyInput');
+  var val = inp.value.replace(/[^\x20-\x7E]/g, '').trim();
+  if (!val.startsWith('sk-ant-') || val.length < 20) {
+    inp.style.borderColor = '#ef4444';
+    inp.value = '';
+    inp.placeholder = 'Gueltiger API-Key erforderlich';
+    setTimeout(function() {
+      inp.style.borderColor = '';
+      inp.placeholder = 'sk-ant-api03-...';
+    }, 2800);
+    return;
+  }
+  apiKey = val;
+  localStorage.setItem('og_api_key', val);
+  document.getElementById('apiModal').classList.add('hidden');
+  refreshKnowledge();
+}
+
+document.getElementById('apiKeyInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveApiKey();
+});
+
+(function init() {
+  var saved = localStorage.getItem('og_api_key');
+  if (saved && saved.startsWith('sk-ant-') && saved.length > 20 && !/[^\x20-\x7E]/.test(saved)) {
+    apiKey = saved;
+    document.getElementById('apiModal').classList.add('hidden');
+    refreshKnowledge();
+  }
+})();
+</script>
+</body>
+</html>
